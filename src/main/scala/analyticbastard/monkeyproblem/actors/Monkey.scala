@@ -3,6 +3,7 @@ package analyticbastard.monkeyproblem.actors
 import java.time.LocalDateTime
 
 import akka.actor.{ActorRef, Actor}
+import akka.event.Logging
 import analyticbastard.monkeyproblem.definitions.Conf._
 import analyticbastard.monkeyproblem.util.Util._
 import analyticbastard.monkeyproblem.definitions.Actions._
@@ -15,6 +16,8 @@ import analyticbastard.monkeyproblem.definitions.{Undefined, Statuses, Direction
 case class Monkey(direction: Direction,
                   timeToCross : Long = timeToCross,
                   timeToGetToTheRope: Long = timeToGetToTheRope) extends Actor {
+  val log = Logging(context.system, this)
+
   var status = Statuses.Grounded
   var lastMonkeyRopeHoldTime : LocalDateTime = LocalDateTime.MIN
 
@@ -29,7 +32,7 @@ case class Monkey(direction: Direction,
       cossIfIcouldHoldOrAbortIfOtherMonkeyHeld(actorRef, lastHoldTime)
 
   def cossIfIcouldHoldOrAbortIfOtherMonkeyHeld(actorRef: ActorRef, lastHoldTime: LocalDateTime) =
-    if (actorRef == self) doCrossCanyon()
+    if (actorRef == self) doCrossCanyon()(lastHoldTime)
     else abortJumpingOtherMonkeyWasLuckier(lastHoldTime)
 
   def tryToJumpAndThenHold(ropeDirection: Direction): Unit = {
@@ -38,7 +41,8 @@ case class Monkey(direction: Direction,
     delayedRun(timeToGetToTheRope)(tryHold)
   }
 
-  def doCrossCanyon() = {
+  def doCrossCanyon()(lastHoldTime: LocalDateTime) = {
+    l(log, s"Monkey ${self.path} with direction $direction is crossing at time $lastHoldTime")
     delayedRun(timeToCross)(() => {
       ropeActorRef(context)  ! Release
     })
