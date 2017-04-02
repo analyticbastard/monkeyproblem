@@ -23,6 +23,15 @@ so it is the monkey the one who decides to hold if the previous attempt was made
 In this case, at least for this commit, I prefer to leave the protocol and the code simpler and
 let the rope decide whether to send the hold confirmation to the monkey.
 
+## Self-documented code
+
+I am a strong advocate of self-documented code and a critic of commented code. I will
+not quote Uncle Bob in this but suffice to say, comments are another part of software that must be
+maintained. 
+
+The methods are short and specific and the variable and method names
+are long, hinting at what they do in the most precise way. The code is then read as prose.
+
 ## Developer's setup
 
 Download the [DCEVM](https://github.com/dcevm/dcevm/releases) and [Hotswap agent](https://github.com/HotswapProjects/HotswapAgent/releases).
