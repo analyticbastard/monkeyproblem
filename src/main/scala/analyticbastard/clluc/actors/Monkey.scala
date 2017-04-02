@@ -1,9 +1,8 @@
 package analyticbastard.clluc.actors
 
 import java.time.LocalDateTime
-import java.time.temporal.ChronoField
 
-import akka.actor.{ActorSelection, Actor}
+import akka.actor.Actor
 import analyticbastard.clluc.definitions.Conf._
 import analyticbastard.clluc.util.Util._
 import analyticbastard.clluc.definitions.Actions._
@@ -35,24 +34,20 @@ case class Monkey(direction: Direction,
 
   def doCrossCanyon() = {
     delayedRun(timeToCross)(() => {
-      val selection: ActorSelection = context.actorSelection(s"akka://$systemName/user/*$ropeBaseName*")
-      selection ! Release
+      ropeActorRef(context)  ! Release
     })
     status = Statuses.Hanging
   }
 
   def tryToJumpAndThenHold(ropeDirection: Direction): Unit = {
-    if (status == Statuses.Grounded && Set(direction, Undefined)(ropeDirection)) status = Statuses.Jumping
+    if (status == Statuses.Grounded && Set(direction, Undefined)(ropeDirection))
+      status = Statuses.Jumping
     delayedRun(timeToGetToTheRope)(tryHold)
   }
 
   def tryHold() = {
-    val now = LocalDateTime.now()
-    val nowMinusTimeToGetToTheRope = now.minus(timeToGetToTheRope, ChronoField.MILLI_OF_DAY.getBaseUnit)
-
-    if (lastMonkeyRopeHoldTime.isBefore(nowMinusTimeToGetToTheRope) && status == Statuses.Jumping) {
-      val selection: ActorSelection = context.actorSelection(s"akka://$systemName/user/*$ropeBaseName*")
-      selection ! Hold(direction)
+    if (currentTimeMeetsMonkeyTimeSpacing(lastMonkeyRopeHoldTime) && status == Statuses.Jumping) {
+      ropeActorRef(context) ! Hold(direction)
     } else
       tryToJumpAndThenHold(direction)
   }

@@ -2,9 +2,10 @@ package analyticbastard.clluc.actors
 
 import akka.actor.{Actor, ActorSelection}
 import analyticbastard.clluc.definitions.Actions._
-import analyticbastard.clluc.definitions.Conf._
 import analyticbastard.clluc.definitions.{Direction, Undefined}
 import java.time.LocalDateTime
+
+import analyticbastard.clluc.util.Util._
 
 /**
   * Created by Javier on 01/04/2017.
@@ -21,8 +22,7 @@ class Rope extends Actor {
       if (hangingMonkeysCount == 0) currentDirection = direction
       hangingMonkeysCount += 1
       lastHoldTime = LocalDateTime.now()
-      val selection: ActorSelection = context.actorSelection(s"akka://$systemName/user/*$monkeyBaseName*")
-      selection ! Hung(sender, lastHoldTime)
+      allMonkeysActorRefs(context) ! Hung(sender, lastHoldTime)
 
     case Release =>
       sender ! Finished

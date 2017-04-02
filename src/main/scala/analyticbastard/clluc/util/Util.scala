@@ -1,5 +1,11 @@
 package analyticbastard.clluc.util
 
+import java.time.LocalDateTime
+import java.time.temporal.ChronoField
+
+import akka.actor.{ActorContext, ActorSelection}
+import analyticbastard.clluc.definitions.Conf._
+
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -12,5 +18,20 @@ object Util {
       Thread.sleep(howLong)
       f()
     }
+  }
+
+  def allMonkeysActorRefs(context: ActorContext): ActorSelection = {
+    context.actorSelection(s"akka://$systemName/user/*$monkeyBaseName*")
+  }
+
+  def ropeActorRef(context: ActorContext): ActorSelection = {
+    context.actorSelection(s"akka://$systemName/user/*$ropeBaseName*")
+  }
+
+  def currentTimeMeetsMonkeyTimeSpacing(lastMonkeyRopeHoldTime : LocalDateTime): Boolean = {
+    val now = LocalDateTime.now()
+    val nowMinusTimeToGetToTheRope = now.minus(timeToGetToTheRope, ChronoField.MILLI_OF_DAY.getBaseUnit)
+
+    lastMonkeyRopeHoldTime.isBefore(nowMinusTimeToGetToTheRope)
   }
 }
