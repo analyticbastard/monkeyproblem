@@ -1,11 +1,11 @@
-package analyticbastard.clluc.actors
+package analyticbastard.monkeyproblem.actors
 
 import akka.actor.{Actor, ActorSelection}
-import analyticbastard.clluc.definitions.Actions._
-import analyticbastard.clluc.definitions.{Direction, Undefined}
+import analyticbastard.monkeyproblem.definitions.Actions._
+import analyticbastard.monkeyproblem.definitions.{Direction, Undefined}
 import java.time.LocalDateTime
 
-import analyticbastard.clluc.util.Util._
+import analyticbastard.monkeyproblem.util.Util._
 
 /**
   * Created by Javier on 01/04/2017.

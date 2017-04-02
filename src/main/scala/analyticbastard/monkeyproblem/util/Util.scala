@@ -1,10 +1,10 @@
-package analyticbastard.clluc.util
+package analyticbastard.monkeyproblem.util
 
 import java.time.LocalDateTime
 import java.time.temporal.ChronoField
 
 import akka.actor.{ActorContext, ActorSelection}
-import analyticbastard.clluc.definitions.Conf._
+import analyticbastard.monkeyproblem.definitions.Conf._
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global

@@ -1,8 +1,8 @@
-package analyticbastard.clluc
+package analyticbastard.monkeyproblem
 
 import akka.actor.{Props, ActorSystem}
-import analyticbastard.clluc.actors.{Rope, Monkey}
-import analyticbastard.clluc.definitions.Conf
+import analyticbastard.monkeyproblem.actors.{Rope, Monkey}
+import analyticbastard.monkeyproblem.definitions.Conf
 import Conf._
 
 /**

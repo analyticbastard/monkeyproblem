@@ -1,4 +1,4 @@
-package analyticbastard.clluc.definitions
+package analyticbastard.monkeyproblem.definitions
 
 /**
   * Created by Javier on 01/04/2017.

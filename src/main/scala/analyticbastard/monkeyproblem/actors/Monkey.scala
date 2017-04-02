@@ -1,12 +1,12 @@
-package analyticbastard.clluc.actors
+package analyticbastard.monkeyproblem.actors
 
 import java.time.LocalDateTime
 
 import akka.actor.Actor
-import analyticbastard.clluc.definitions.Conf._
-import analyticbastard.clluc.util.Util._
-import analyticbastard.clluc.definitions.Actions._
-import analyticbastard.clluc.definitions.{Undefined, Statuses, Direction}
+import analyticbastard.monkeyproblem.definitions.Conf._
+import analyticbastard.monkeyproblem.util.Util._
+import analyticbastard.monkeyproblem.definitions.Actions._
+import analyticbastard.monkeyproblem.definitions.{Undefined, Statuses, Direction}
 
 
 /**

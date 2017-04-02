@@ -1,9 +1,9 @@
-package analyticbastard.clluc.definitions
+package analyticbastard.monkeyproblem.definitions
 
 import java.time.LocalDateTime
 
 import akka.actor.ActorRef
-import analyticbastard.clluc.definitions.Direction
+import analyticbastard.monkeyproblem.definitions.Direction
 
 /**
   * Created by Javier on 01/04/2017.
