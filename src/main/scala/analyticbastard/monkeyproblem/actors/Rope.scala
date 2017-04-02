@@ -16,7 +16,6 @@ class Rope extends Actor {
   var lastHoldTime : LocalDateTime = LocalDateTime.MIN
 
   override def receive = {
-    case ObserveHangingMonkeys => sender ! HangingMonkeys(currentDirection, lastHoldTime)
     case Hold(direction) => newMonkeyGotHold(direction)
     case Release => releaseMonkey()
   }
