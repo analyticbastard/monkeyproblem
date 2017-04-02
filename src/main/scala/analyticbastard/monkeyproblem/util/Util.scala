@@ -16,10 +16,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Util {
   def l(log: LoggingAdapter, s: String) = log.info(s)
 
-  def delayedRun[T](howLong: Long)(f: () => T) : Unit = {
+  def delayedRun[T](howLong: Long)(f: => T) : Unit = {
     Future {
       Thread.sleep(howLong)
-      f()
+      f
     }
   }
 

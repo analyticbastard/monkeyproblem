@@ -16,7 +16,7 @@ class Rope extends Actor {
   var lastHoldTime : LocalDateTime = LocalDateTime.MIN
 
   override def receive = {
-    case Hold(direction) => newMonkeyGotHold(direction)
+    case Hold(direction) => newMonkeyTriesToGetHold(direction)
     case Release => releaseMonkey()
   }
 
@@ -28,12 +28,13 @@ class Rope extends Actor {
 
   def resetDirectionIfThereAreNoHangingMonkeys() = changeDirection(Undefined)
 
-  def newMonkeyGotHold(direction: Direction) = {
-    setDirectionToThatOfMonkey(direction)
-    hangingMonkeysCount += 1
-    lastHoldTime = LocalDateTime.now()
-    allMonkeysActorRefs(context) ! Hung(sender, lastHoldTime)
-  }
+  def newMonkeyTriesToGetHold(direction: Direction) =
+    if (currentTimeMeetsMonkeyTimeSpacing(lastHoldTime)) {
+      setDirectionToThatOfMonkey(direction)
+      hangingMonkeysCount += 1
+      lastHoldTime = LocalDateTime.now()
+      allMonkeysActorRefs(context) ! Hung(sender, lastHoldTime)
+    }
 
   def setDirectionToThatOfMonkey(direction: Direction) = changeDirection(direction)
 

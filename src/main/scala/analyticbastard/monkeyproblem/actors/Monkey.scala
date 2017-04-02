@@ -38,7 +38,7 @@ case class Monkey(direction: Direction,
   def tryToJumpAndThenHold(ropeDirection: Direction): Unit = {
     if (isMonkeyGrounded && areHangingMonkeysTravelingTheSameWay(ropeDirection))
       status = Statuses.Jumping
-    delayedRun(timeToGetToTheRope)(tryHold)
+    delayedRun(timeToGetToTheRope)({tryHold(ropeDirection)})
   }
 
   def doCrossCanyon()(lastHoldTime: LocalDateTime) = {
@@ -52,6 +52,7 @@ case class Monkey(direction: Direction,
   def abortJumpingOtherMonkeyWasLuckier(lastHoldTime: LocalDateTime) = {
     lastMonkeyRopeHoldTime = lastHoldTime
     status = Statuses.Grounded
+    tryToJumpAndThenHold(direction)
   }
 
   def areHangingMonkeysTravelingTheSameWay(ropeDirection: Direction): Boolean = {
@@ -60,11 +61,11 @@ case class Monkey(direction: Direction,
 
   val compatibleDirections: Set[Direction] = Set(direction, Undefined)
 
-  def tryHold() = {
+  def tryHold(ropeDirection: Direction) = {
     if (currentTimeMeetsMonkeyTimeSpacing(lastMonkeyRopeHoldTime) && status == Statuses.Jumping)
       ropeActorRef(context) ! Hold(direction)
     else if (didMonkeyAbortJumping)
-      tryToJumpAndThenHold(direction)
+      tryToJumpAndThenHold(ropeDirection)
   }
 
   def isMonkeyGrounded: Boolean = status == Statuses.Grounded
