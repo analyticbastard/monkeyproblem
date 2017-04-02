@@ -1,6 +1,6 @@
 package analyticbastard.monkeyproblem.actors
 
-import akka.actor.{Actor, ActorSelection}
+import akka.actor.Actor
 import analyticbastard.monkeyproblem.definitions.Actions._
 import analyticbastard.monkeyproblem.definitions.{Direction, Undefined}
 import java.time.LocalDateTime
@@ -17,16 +17,26 @@ class Rope extends Actor {
 
   override def receive = {
     case ObserveHangingMonkeys => sender ! HangingMonkeys(currentDirection, lastHoldTime)
-
-    case Hold(direction) =>
-      if (hangingMonkeysCount == 0) currentDirection = direction
-      hangingMonkeysCount += 1
-      lastHoldTime = LocalDateTime.now()
-      allMonkeysActorRefs(context) ! Hung(sender, lastHoldTime)
-
-    case Release =>
-      sender ! Finished
-      hangingMonkeysCount -= 1
-      if (hangingMonkeysCount == 0) currentDirection = Undefined
+    case Hold(direction) => newMonkeyGotHold(direction)
+    case Release => releaseMonkey()
   }
+
+  def releaseMonkey() = {
+    sender ! Finished
+    hangingMonkeysCount -= 1
+    resetDirectionIfThereAreNoHangingMonkeys()
+  }
+
+  def resetDirectionIfThereAreNoHangingMonkeys() = changeDirection(Undefined)
+
+  def newMonkeyGotHold(direction: Direction) = {
+    setDirectionToThatOfMonkey(direction)
+    hangingMonkeysCount += 1
+    lastHoldTime = LocalDateTime.now()
+    allMonkeysActorRefs(context) ! Hung(sender, lastHoldTime)
+  }
+
+  def setDirectionToThatOfMonkey(direction: Direction) = changeDirection(direction)
+
+  def changeDirection(direction: Direction) = if (hangingMonkeysCount == 0) currentDirection = direction
 }

@@ -2,7 +2,7 @@ package analyticbastard.monkeyproblem.actors
 
 import java.time.LocalDateTime
 
-import akka.actor.Actor
+import akka.actor.{ActorRef, Actor}
 import analyticbastard.monkeyproblem.definitions.Conf._
 import analyticbastard.monkeyproblem.util.Util._
 import analyticbastard.monkeyproblem.definitions.Actions._
@@ -20,16 +20,22 @@ case class Monkey(direction: Direction,
 
   override def receive = {
     case Started(ropeDirection) => tryToJumpAndThenHold(ropeDirection)
-
-    case Hung(actorRef, lastHoldTime) =>
-      if (actorRef == self) {
-        doCrossCanyon()
-      } else {
-        lastMonkeyRopeHoldTime = lastHoldTime
-        status = Statuses.Grounded
-      }
-
+    case Hung(actorRef, lastHoldTime) => ignoreIfAlreadyHangingOtherwiseCrossOrAbort(actorRef, lastHoldTime)
     case Finished => status = Statuses.Finished
+  }
+
+  def ignoreIfAlreadyHangingOtherwiseCrossOrAbort(actorRef: ActorRef, lastHoldTime: LocalDateTime) =
+    if (status != Statuses.Hanging)
+      cossIfIcouldHoldOrAbortIfOtherMonkeyHeld(actorRef, lastHoldTime)
+
+  def cossIfIcouldHoldOrAbortIfOtherMonkeyHeld(actorRef: ActorRef, lastHoldTime: LocalDateTime) =
+    if (actorRef == self) doCrossCanyon()
+    else abortJumpingOtherMonkeyWasLuckier(lastHoldTime)
+
+  def tryToJumpAndThenHold(ropeDirection: Direction): Unit = {
+    if (isMonkeyGrounded && areHangingMonkeysTravelingTheSameWay(ropeDirection))
+      status = Statuses.Jumping
+    delayedRun(timeToGetToTheRope)(tryHold)
   }
 
   def doCrossCanyon() = {
@@ -39,16 +45,26 @@ case class Monkey(direction: Direction,
     status = Statuses.Hanging
   }
 
-  def tryToJumpAndThenHold(ropeDirection: Direction): Unit = {
-    if (status == Statuses.Grounded && Set(direction, Undefined)(ropeDirection))
-      status = Statuses.Jumping
-    delayedRun(timeToGetToTheRope)(tryHold)
+  def abortJumpingOtherMonkeyWasLuckier(lastHoldTime: LocalDateTime) = {
+    lastMonkeyRopeHoldTime = lastHoldTime
+    status = Statuses.Grounded
   }
 
+  def areHangingMonkeysTravelingTheSameWay(ropeDirection: Direction): Boolean = {
+    compatibleDirections(ropeDirection)
+  }
+
+  val compatibleDirections: Set[Direction] = Set(direction, Undefined)
+
   def tryHold() = {
-    if (currentTimeMeetsMonkeyTimeSpacing(lastMonkeyRopeHoldTime) && status == Statuses.Jumping) {
+    if (currentTimeMeetsMonkeyTimeSpacing(lastMonkeyRopeHoldTime) && status == Statuses.Jumping)
       ropeActorRef(context) ! Hold(direction)
-    } else
+    else if (didMonkeyAbortJumping)
       tryToJumpAndThenHold(direction)
   }
+
+  def isMonkeyGrounded: Boolean = status == Statuses.Grounded
+
+  def didMonkeyAbortJumping : Boolean = isMonkeyGrounded
+
 }
