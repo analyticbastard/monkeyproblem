@@ -1,20 +1,13 @@
 package analyticbastard.monkeyproblem.definitions
 
-import java.time.LocalDateTime
-
-import akka.actor.ActorRef
-import analyticbastard.monkeyproblem.definitions.Direction
-
 /**
   * Created by Javier on 01/04/2017.
   */
 object Actions {
+  case object Start
+  case object WhoIsJumping
   case class Jump(direction: Direction)
-  case class Hold(direction: Direction)
-  case object Release
-
-  case class Hung(actorRef: ActorRef, lastHoldTime: LocalDateTime)
-  case class Started(direction: Direction)
-  case object Finished
+  case object WhoIsHanging
+  case class Hang(direction: Direction)
 }
 

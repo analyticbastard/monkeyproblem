@@ -9,5 +9,8 @@ object Conf {
   val monkeyBaseName = "monkey"
 
   val timeToCross = 4000
-  val timeToGetToTheRope = 1000
+  val timeToJump = 1000
+
+  val hangingMonkeyCheckerTime = 240
+  val jumpingMonkeyCheckerTime = 240
 }

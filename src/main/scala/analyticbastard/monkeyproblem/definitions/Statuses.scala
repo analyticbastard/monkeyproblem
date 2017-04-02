@@ -8,4 +8,5 @@ object Statuses extends Enumeration {
   val Jumping = Value("Jumping")
   val Hanging = Value("Hanging")
   val Finished = Value("Finished")
+  val Conflict = Value("Conflict")
 }

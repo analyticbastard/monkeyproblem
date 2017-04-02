@@ -9,6 +9,7 @@ lazy val root = (project in file(".")).
     )),
     name := "monkeyproblem",
     libraryDependencies += scalaTest % Test,
+    libraryDependencies += "org.scalamock" %% "scalamock-scalatest-support" % "3.5.0" % Test,
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor" % "2.4.17",
       "com.typesafe.akka" %% "akka-testkit" % "2.4.17")

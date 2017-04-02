@@ -1,13 +1,19 @@
 package analyticbastard.monkeyproblem.actors
 
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 
-import akka.actor.{ActorRef, Actor}
+import akka.actor.{Actor, Cancellable, Scheduler}
 import akka.event.Logging
-import analyticbastard.monkeyproblem.definitions.Conf._
-import analyticbastard.monkeyproblem.util.Util._
 import analyticbastard.monkeyproblem.definitions.Actions._
-import analyticbastard.monkeyproblem.definitions.{Undefined, Statuses, Direction}
+import analyticbastard.monkeyproblem.definitions.Conf._
+import analyticbastard.monkeyproblem.definitions.Direction
+import analyticbastard.monkeyproblem.definitions.Statuses._
+import analyticbastard.monkeyproblem.util.Util._
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 
 /**
@@ -15,61 +21,118 @@ import analyticbastard.monkeyproblem.definitions.{Undefined, Statuses, Direction
   */
 case class Monkey(direction: Direction,
                   timeToCross : Long = timeToCross,
-                  timeToGetToTheRope: Long = timeToGetToTheRope) extends Actor {
+                  timeToJump: Long = timeToJump) extends Actor {
   val log = Logging(context.system, this)
+  val scheduler: Scheduler = context.system.scheduler
 
-  var status = Statuses.Grounded
-  var lastMonkeyRopeHoldTime : LocalDateTime = LocalDateTime.MIN
+  val selfName: String = self.path.name
+
+  var status = Grounded
+  var jumpTask: Cancellable = _
+  var askJumpTask: Cancellable = _
+  var askHangTask: Cancellable = _
+  var lastMonkeyName: String = selfName
+  var lastMonkeyDirection: Direction = _
+  var lastHangingMonkeyTime: LocalDateTime = LocalDateTime.MIN
+  var shouldAbort: Boolean = false
 
   override def receive = {
-    case Started(ropeDirection) => tryToJumpAndThenHold(ropeDirection)
-    case Hung(actorRef, lastHoldTime) => ignoreIfAlreadyHangingOtherwiseCrossOrAbort(actorRef, lastHoldTime)
-    case Finished => status = Statuses.Finished
+    case Start => startSchedulingAJump()
+    case WhoIsJumping => sendStatusIfCurrentlyJumping()
+    case Jump(senderDirection) => possiblyAbortJump(senderDirection)
+    case WhoIsHanging => sendStatusIfCurrentlyHanging()
+    case Hang(senderDirection) => setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection)
   }
 
-  def ignoreIfAlreadyHangingOtherwiseCrossOrAbort(actorRef: ActorRef, lastHoldTime: LocalDateTime) =
-    if (status != Statuses.Hanging)
-      cossIfIcouldHoldOrAbortIfOtherMonkeyHeld(actorRef, lastHoldTime)
-
-  def cossIfIcouldHoldOrAbortIfOtherMonkeyHeld(actorRef: ActorRef, lastHoldTime: LocalDateTime) =
-    if (actorRef == self) doCrossCanyon()(lastHoldTime)
-    else abortJumpingOtherMonkeyWasLuckier(lastHoldTime)
-
-  def tryToJumpAndThenHold(ropeDirection: Direction): Unit = {
-    if (isMonkeyGrounded && areHangingMonkeysTravelingTheSameWay(ropeDirection))
-      status = Statuses.Jumping
-    delayedRun(timeToGetToTheRope)({tryHold(ropeDirection)})
+  private def startSchedulingAJump() = {
+    log.info(s"Start on side ${direction.opposite.name}")
+    jump()
   }
 
-  def doCrossCanyon()(lastHoldTime: LocalDateTime) = {
-    l(log, s"Monkey ${self.path} with direction $direction is crossing at time $lastHoldTime")
-    delayedRun(timeToCross)(() => {
-      ropeActorRef(context)  ! Release
-    })
-    status = Statuses.Hanging
+  def jump(): Unit = {
+    status = Jumping
+    allMonkeysActorRefs(context) ! WhoIsJumping
+    log.debug(s"Jumping")
+    jumpAndHoldRope()
+    setUpJumpingMonkeyChecker()
+    setUpHangingMonkeyChecker()
   }
 
-  def abortJumpingOtherMonkeyWasLuckier(lastHoldTime: LocalDateTime) = {
-    lastMonkeyRopeHoldTime = lastHoldTime
-    status = Statuses.Grounded
-    tryToJumpAndThenHold(direction)
+  private def setUpJumpingMonkeyChecker() =
+    askJumpTask = scheduler.schedule(Duration.create(jumpingMonkeyCheckerTime, TimeUnit.MILLISECONDS),
+      Duration.create(jumpingMonkeyCheckerTime, TimeUnit.MILLISECONDS)) {
+      allMonkeysActorRefs(context) ! WhoIsJumping
+    }
+
+  private def setUpHangingMonkeyChecker() =
+    askHangTask = scheduler.schedule(Duration.create(hangingMonkeyCheckerTime, TimeUnit.MILLISECONDS),
+      Duration.create(hangingMonkeyCheckerTime, TimeUnit.MILLISECONDS)) {
+      allMonkeysActorRefs(context) ! WhoIsHanging
+    }
+
+  private def sendStatusIfCurrentlyJumping() = if (sender != self && status == Jumping) sender ! Jump(direction)
+
+  private def sendStatusIfCurrentlyHanging() = if (sender != self && status == Hanging) sender ! Hang(direction)
+
+  private def jumpAndHoldRope() = {
+    jumpTask = scheduler.schedule(Duration.create(timeToJump, TimeUnit.MILLISECONDS), Duration.create(timeToJump, TimeUnit.MILLISECONDS))
+    {
+      val allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough =
+        direction == lastMonkeyDirection || LocalDateTime.now.minus(timeToCross, ChronoUnit.MILLIS).isAfter(lastHangingMonkeyTime)
+
+      if (!shouldAbort && allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough) {
+        status = Hanging
+        if (!noNeedToJumpAnymoreCancelJumpTask) log.debug("Error when cancelling task")
+        log.info(s"Hanging")
+        finishAfterCrossing
+      } else {
+        log.debug("Will try to jump again")
+        shouldAbort = false
+      }
+    }
   }
 
-  def areHangingMonkeysTravelingTheSameWay(ropeDirection: Direction): Boolean = {
-    compatibleDirections(ropeDirection)
+  def noNeedToJumpAnymoreCancelJumpTask(): Boolean = jumpTask.cancel() || jumpTask.isCancelled
+
+  private def finishAfterCrossing: Cancellable =
+    scheduler.scheduleOnce(Duration.create(timeToCross, TimeUnit.MILLISECONDS)) {
+      finish()
+    }
+
+  def possiblyAbortJump(senderDirection: Direction): Unit =
+    if (selfName != sender.path.name) shouldAbort = shouldAbort || possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection)
+
+  def possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection: Direction): Boolean =
+    if (lastMonkeyDirection == null) jumpPolicy
+    else {
+      if (direction == lastMonkeyDirection) {
+        if (senderDirection == lastMonkeyDirection) jumpPolicy
+        else false
+      } else {
+        if (senderDirection == lastMonkeyDirection) true
+        else jumpPolicy
+      }
+    }
+
+  private def jumpPolicy = ifSenderNameLessThanNameThenSenderJumpsAndThisAborts
+
+  private def ifSenderNameLessThanNameThenSenderJumpsAndThisAborts = sender.path.name < selfName
+
+  def setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection: Direction): Unit =
+    if (sender != self && jumpPolicy) {
+      lastMonkeyDirection = senderDirection
+      lastMonkeyName = selfName
+      shouldAbort = possiblyAbortBecauseOfHangingMonkey(senderDirection)
+      lastHangingMonkeyTime = LocalDateTime.now
+    }
+
+  def possiblyAbortBecauseOfHangingMonkey(senderDirection: Direction): Boolean = senderDirection != direction
+
+  def finish(): Unit = {
+    askJumpTask.cancel()
+    askHangTask.cancel()
+    log.info(s"FINISHED crossing [${LocalDateTime.now}] on side ${direction.name}")
+    status = Finished
+    context.stop(self)
   }
-
-  val compatibleDirections: Set[Direction] = Set(direction, Undefined)
-
-  def tryHold(ropeDirection: Direction) = {
-    if (currentTimeMeetsMonkeyTimeSpacing(lastMonkeyRopeHoldTime) && status == Statuses.Jumping)
-      ropeActorRef(context) ! Hold(direction)
-    else if (didMonkeyAbortJumping)
-      tryToJumpAndThenHold(ropeDirection)
-  }
-
-  def isMonkeyGrounded: Boolean = status == Statuses.Grounded
-
-  def didMonkeyAbortJumping : Boolean = isMonkeyGrounded
-
 }
