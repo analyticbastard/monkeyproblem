@@ -1,4 +1,5 @@
-# New readme
+# Monkey problem
+[![Build Status](https://travis-ci.org/analyticbastard/monkeyproblem.svg?branch=master)](https://travis-ci.org/analyticbastard/monkeyproblem)
 
 ## Only monkey actors system
 
@@ -10,6 +11,31 @@ put on the protocol to effectively deal with conflicting situations. Here, I use
 computer time so that a monkey agent can decide whether to abort the jump to grab the rope.
 If no other monkey jumped before and the 1 second to grab the rope has passed, the agent will
 change its state to effectively hold it and cross the Canyon.
+
+## Protocol
+
+Each monkey needs to jump to get hold of the rope. It takes 1 second to do this.
+While it is jumping it might notice that other monkeys started jumping before him or that there
+is a monkey hanging from the rope. If a monkey is hanging from the rope, the monkey checks
+whether it goes in the same direction, and aborts if it is not.
+
+On the other hand, when jumping to grab the rope the protocol is as follows:
+
+If we are in the same direction than the last known monkey on the rope
+check if other monkeys in the same direction jumped before.
+ 
+### Jumping policy
+
+Here we define what jumping before means. In this case, it coincides with the monkey name (path)
+so that everything can look clear upon a glance.
+
+When a monkey grabs the rope, the last jumping monkey name is reset, because it is updated
+with the winning candidate to grab the rope.
+
+## Implementation
+
+The implementation uses Akka. There are Akka scheduled timers to poll for jumping monkeys
+and hanging monkeys.
 
 ## Self-documented code
 
