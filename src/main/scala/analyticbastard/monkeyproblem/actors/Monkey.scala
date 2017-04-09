@@ -21,27 +21,31 @@ case class Monkey(monkeyLogic: MonkeyLogic) extends Actor {
   val log = Logging(context.system, this)
   val scheduler: Scheduler = context.system.scheduler
 
-  val selfName: String = self.path.name
+  val name: String = self.path.name
 
   var jumpTask: Cancellable = _
   var askJumpTask: Cancellable = _
   var askHangTask: Cancellable = _
 
   override def receive = {
-    case Start => startSchedulingAJump()
+    case Start(test) => startSchedulingAJump(test)
+    case Start => startSchedulingAJump(false)
     case WhoIsJumping => sendJump()
     case Jump(senderDirection) => possiblyAbortJump(senderDirection)
     case WhoIsHanging => sendHang()
     case Hang(senderDirection) => setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection)
   }
 
-  def startSchedulingAJump(): Unit = {
+  def startSchedulingAJump(test: Boolean): Unit = {
     monkeyLogic.self = this
-    allMonkeysActorRefs(context) ! WhoIsJumping
-    log.debug(s"Jumping")
-    jumpTask = jumpAndPossiblyHoldRope()
-    askJumpTask = setUpJumpingMonkeyChecker()
-    askHangTask = setUpHangingMonkeyChecker()
+    monkeyLogic.name = name
+    if (!test) {
+      allMonkeysActorRefs(context) ! WhoIsJumping
+      log.debug(s"Jumping")
+      jumpTask = jumpAndPossiblyHoldRope()
+      askJumpTask = setUpJumpingMonkeyChecker()
+      askHangTask = setUpHangingMonkeyChecker()
+    }
   }
 
   private def setUpJumpingMonkeyChecker() =
@@ -64,23 +68,30 @@ case class Monkey(monkeyLogic: MonkeyLogic) extends Actor {
     scheduler.schedule(Duration.create(timeToJump, TimeUnit.MILLISECONDS),
       Duration.create(timeToJump, TimeUnit.MILLISECONDS))(monkeyLogic.jumpAndPossiblyHoldRope())
 
-  def noNeedToJumpAnymoreCancelJumpTask(): Boolean = jumpTask.cancel() || jumpTask.isCancelled
+  def noNeedToJumpAnymoreCancelJumpTask(): Boolean = jumpTask == null || jumpTask.cancel() || jumpTask.isCancelled
 
   def finishAfterCrossing: Cancellable =
     scheduler.scheduleOnce(Duration.create(timeToCross, TimeUnit.MILLISECONDS)) {
-      finish()
+      finish(false)
     }
 
   def possiblyAbortJump(senderDirection: Direction): Unit =
-    if (selfName != sender.path.name) monkeyLogic.possiblyAbortJump(senderDirection)
+    if (name != sender.path.name) monkeyLogic.possiblyAbortJump(senderDirection, sender.path.name)
 
   def setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection: Direction): Unit =
-    if (sender != self) monkeyLogic.setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection)
+    if (!monkeyLogic.checkConflict(senderDirection)) {
+      if (sender != self) monkeyLogic.setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection)
+    } else finish(true)
 
-  def finish(): Unit = {
+  def info(text: String): Unit =  log.info(text)
+
+  def debug(text: String): Unit =  log.debug(text)
+
+  def finish(conflict: Boolean): Unit = {
     askJumpTask.cancel()
     askHangTask.cancel()
     monkeyLogic.finish()
+    if (conflict) log.info("CONFLICT!!!")
     val extraTimeToPickUpMessages: Int = 50
     scheduler.scheduleOnce(Duration.create(extraTimeToPickUpMessages, TimeUnit.MILLISECONDS)) {
       context.stop(self)

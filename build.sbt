@@ -7,6 +7,7 @@ lazy val root = (project in file(".")).
       scalaVersion := "2.12.1",
       version      := "0.1.0-SNAPSHOT"
     )),
+    parallelExecution in Test := false,
     name := "monkeyproblem",
     libraryDependencies += scalaTest % Test,
     libraryDependencies += "org.scalamock" %% "scalamock-scalatest-support" % "3.5.0" % Test,

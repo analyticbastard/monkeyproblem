@@ -12,59 +12,60 @@ import analyticbastard.monkeyproblem.definitions.Statuses._
   * Created by Javier on 09/04/2017.
   */
 class MonkeyLogic(var direction: Direction,
+                  var name: String = "",
                   timeToCross : Long = timeToCross,
                   timeToJump: Long = timeToJump) {
 
   var status = Jumping
 
-  var lastMonkeyName: String = _
-  var lastMonkeyDirection: Direction = _
+  var lastHangingMonkeyDirection: Direction = _
   var lastHangingMonkeyTime: LocalDateTime = LocalDateTime.MIN
   var shouldAbortJump: Boolean = false
   var self: Monkey = _
 
   def jumpAndPossiblyHoldRope() = {
     val allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough =
-      direction == lastMonkeyDirection || lastMonkeyHangingGivenTimeOrMoreAgo(timeToCross)
+      direction == lastHangingMonkeyDirection || lastMonkeyHangingGivenTimeOrMoreAgo(timeToCross)
 
     if (!shouldAbortJump && allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough) {
       status = Hanging
-      if (!self.noNeedToJumpAnymoreCancelJumpTask) self.log.debug("Error when cancelling task")
-      self.log.info(s"Hanging")
+      if (!self.noNeedToJumpAnymoreCancelJumpTask) self.debug("Error when cancelling task")
+      self.info("Hanging")
       self.finishAfterCrossing
     } else {
-      self.log.debug("Will try to jump again")
+      self.debug("Will try to jump again")
       shouldAbortJump = false
     }
   }
 
-  def possiblyAbortJump(senderDirection: Direction): Unit =
-    shouldAbortJump = shouldAbortJump || possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection)
+  def possiblyAbortJump(senderDirection: Direction, senderName: String): Unit =
+    shouldAbortJump = shouldAbortJump || possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection, senderName)
 
-  def possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection: Direction): Boolean =
-    if (lastMonkeyDirection == null) jumpPolicy
+  def possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection: Direction, senderName: String): Boolean =
+    if (lastHangingMonkeyDirection == null) jumpPolicy(senderName)
     else {
-      if (direction == lastMonkeyDirection) {
-        if (senderDirection == lastMonkeyDirection) jumpPolicy
+      if (direction == lastHangingMonkeyDirection) {
+        if (senderDirection == lastHangingMonkeyDirection) jumpPolicy(senderName)
         else false
       } else {
-        if (senderDirection == lastMonkeyDirection) true
-        else jumpPolicy
+        if (senderDirection == lastHangingMonkeyDirection) true
+        else jumpPolicy(senderName)
       }
     }
 
-  private def jumpPolicy = ifSenderNameLessThanNameThenSenderJumpsAndThisAborts
+  private def jumpPolicy(senderName: String) = ifSenderNameLessThanNameThenSenderJumpsAndThisAborts(senderName)
 
-  private def ifSenderNameLessThanNameThenSenderJumpsAndThisAborts = self.sender.path.name < self.selfName
+  def ifSenderNameLessThanNameThenSenderJumpsAndThisAborts(senderName: String) = senderName < name
 
   def setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection: Direction): Unit =
   {
     val extraTimeToTryJumping: Long = timeToCross + 1000
     if (lastMonkeyHangingGivenTimeOrMoreAgo(extraTimeToTryJumping)) lastHangingMonkeyTime = LocalDateTime.now
-    lastMonkeyDirection = senderDirection
-    lastMonkeyName = self.selfName
+    lastHangingMonkeyDirection = senderDirection
     shouldAbortJump = possiblyAbortBecauseOfHangingMonkey(senderDirection)
   }
+
+  def checkConflict(senderDirection: Direction) = status == Hanging && senderDirection != direction
 
   def lastMonkeyHangingGivenTimeOrMoreAgo(millisSinceHanging: Long): Boolean =
     LocalDateTime.now.minus(millisSinceHanging, ChronoUnit.MILLIS).isAfter(lastHangingMonkeyTime)
@@ -76,7 +77,7 @@ class MonkeyLogic(var direction: Direction,
   def isHanging: Boolean = status == Hanging
 
   def finish(): Unit = {
-    self.log.info(s"FINISHED crossing on side ${direction.name}")
+    self.info(s"FINISHED crossing on side ${direction.name}")
     status = Finished
   }
 }
