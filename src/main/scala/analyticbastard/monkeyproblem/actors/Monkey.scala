@@ -34,7 +34,7 @@ case class Monkey(direction: Direction,
   var lastMonkeyName: String = selfName
   var lastMonkeyDirection: Direction = _
   var lastHangingMonkeyTime: LocalDateTime = LocalDateTime.MIN
-  var shouldAbort: Boolean = false
+  var shouldAbortJump: Boolean = false
 
   override def receive = {
     case Start => startSchedulingAJump()
@@ -44,28 +44,23 @@ case class Monkey(direction: Direction,
     case Hang(senderDirection) => setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection)
   }
 
-  private def startSchedulingAJump() = {
-    log.info(s"Start on side ${direction.opposite.name}")
-    jump()
-  }
-
-  def jump(): Unit = {
+  def startSchedulingAJump(): Unit = {
     status = Jumping
     allMonkeysActorRefs(context) ! WhoIsJumping
     log.debug(s"Jumping")
-    jumpAndHoldRope()
-    setUpJumpingMonkeyChecker()
-    setUpHangingMonkeyChecker()
+    jumpTask = jumpAndPossiblyHoldRope()
+    askJumpTask = setUpJumpingMonkeyChecker()
+    askHangTask = setUpHangingMonkeyChecker()
   }
 
   private def setUpJumpingMonkeyChecker() =
-    askJumpTask = scheduler.schedule(Duration.create(jumpingMonkeyCheckerTime, TimeUnit.MILLISECONDS),
+    scheduler.schedule(Duration.create(jumpingMonkeyCheckerTime, TimeUnit.MILLISECONDS),
       Duration.create(jumpingMonkeyCheckerTime, TimeUnit.MILLISECONDS)) {
       allMonkeysActorRefs(context) ! WhoIsJumping
     }
 
   private def setUpHangingMonkeyChecker() =
-    askHangTask = scheduler.schedule(Duration.create(hangingMonkeyCheckerTime, TimeUnit.MILLISECONDS),
+    scheduler.schedule(Duration.create(hangingMonkeyCheckerTime, TimeUnit.MILLISECONDS),
       Duration.create(hangingMonkeyCheckerTime, TimeUnit.MILLISECONDS)) {
       allMonkeysActorRefs(context) ! WhoIsHanging
     }
@@ -74,20 +69,20 @@ case class Monkey(direction: Direction,
 
   private def sendStatusIfCurrentlyHanging() = if (sender != self && status == Hanging) sender ! Hang(direction)
 
-  private def jumpAndHoldRope() = {
-    jumpTask = scheduler.schedule(Duration.create(timeToJump, TimeUnit.MILLISECONDS), Duration.create(timeToJump, TimeUnit.MILLISECONDS))
+  private def jumpAndPossiblyHoldRope() = {
+    scheduler.schedule(Duration.create(timeToJump, TimeUnit.MILLISECONDS), Duration.create(timeToJump, TimeUnit.MILLISECONDS))
     {
       val allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough =
-        direction == lastMonkeyDirection || LocalDateTime.now.minus(timeToCross, ChronoUnit.MILLIS).isAfter(lastHangingMonkeyTime)
+        direction == lastMonkeyDirection || lastMonkeyHangingGivenTimeOrMoreAgo(timeToCross)
 
-      if (!shouldAbort && allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough) {
+      if (!shouldAbortJump && allowIfHangingMonkeyIsSameDirectionOrItHasBeenLongEnough) {
         status = Hanging
         if (!noNeedToJumpAnymoreCancelJumpTask) log.debug("Error when cancelling task")
         log.info(s"Hanging")
         finishAfterCrossing
       } else {
         log.debug("Will try to jump again")
-        shouldAbort = false
+        shouldAbortJump = false
       }
     }
   }
@@ -100,7 +95,7 @@ case class Monkey(direction: Direction,
     }
 
   def possiblyAbortJump(senderDirection: Direction): Unit =
-    if (selfName != sender.path.name) shouldAbort = shouldAbort || possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection)
+    if (selfName != sender.path.name) shouldAbortJump = shouldAbortJump || possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection)
 
   def possiblyAbortIfThereIsAHangingMonkeyAlreadyOrNot(senderDirection: Direction): Boolean =
     if (lastMonkeyDirection == null) jumpPolicy
@@ -119,12 +114,16 @@ case class Monkey(direction: Direction,
   private def ifSenderNameLessThanNameThenSenderJumpsAndThisAborts = sender.path.name < selfName
 
   def setHangingMonkeyDirectionAndResetJumpPolicy(senderDirection: Direction): Unit =
-    if (sender != self && jumpPolicy) {
+    if (sender != self) {
+      val extraTimeToTryJumping: Long = timeToCross + 1000
+      if (lastMonkeyHangingGivenTimeOrMoreAgo(extraTimeToTryJumping)) lastHangingMonkeyTime = LocalDateTime.now
       lastMonkeyDirection = senderDirection
       lastMonkeyName = selfName
-      shouldAbort = possiblyAbortBecauseOfHangingMonkey(senderDirection)
-      lastHangingMonkeyTime = LocalDateTime.now
+      shouldAbortJump = possiblyAbortBecauseOfHangingMonkey(senderDirection)
     }
+
+  def lastMonkeyHangingGivenTimeOrMoreAgo(millisSinceHanging: Long): Boolean =
+    LocalDateTime.now.minus(millisSinceHanging, ChronoUnit.MILLIS).isAfter(lastHangingMonkeyTime)
 
   def possiblyAbortBecauseOfHangingMonkey(senderDirection: Direction): Boolean = senderDirection != direction
 
@@ -133,6 +132,9 @@ case class Monkey(direction: Direction,
     askHangTask.cancel()
     log.info(s"FINISHED crossing [${LocalDateTime.now}] on side ${direction.name}")
     status = Finished
-    context.stop(self)
+    val extraTimeToPickUpMessages: Int = 50
+    scheduler.scheduleOnce(Duration.create(extraTimeToPickUpMessages, TimeUnit.MILLISECONDS)) {
+      context.stop(self)
+    }
   }
 }
