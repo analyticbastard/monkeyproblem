@@ -2,10 +2,11 @@ package analyticbastard.monkeyproblem
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import analyticbastard.monkeyproblem.actors.logic.MonkeyLogic
 import analyticbastard.monkeyproblem.actors.Monkey
 import analyticbastard.monkeyproblem.definitions.Actions._
 import analyticbastard.monkeyproblem.definitions.Conf._
-import analyticbastard.monkeyproblem.definitions.West
+import analyticbastard.monkeyproblem.definitions.{East, West}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 /**
@@ -18,7 +19,7 @@ class MonkeySpec extends TestKit(ActorSystem(systemName))
   with Matchers {
 
   private val direction = West
-  val monkeyWest: ActorRef = system.actorOf(Props(Monkey(direction)), name = "monkeyWest")
+  val monkeyWest: ActorRef = system.actorOf(Props(Monkey(new MonkeyLogic(direction))), name = "monkeyWest")
   val relayMonkey: ActorRef = system.actorOf(Props(RelayMonkey(monkeyWest.path)), name = "monkeyMock")
 
   relayMonkey ! "test_start"

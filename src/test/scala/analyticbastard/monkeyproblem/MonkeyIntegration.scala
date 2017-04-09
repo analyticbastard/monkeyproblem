@@ -2,6 +2,7 @@ package analyticbastard.monkeyproblem
 
 import akka.actor.{ActorSelection, ActorSystem, Props}
 import akka.testkit.{ImplicitSender, TestKit}
+import analyticbastard.monkeyproblem.actors.logic.MonkeyLogic
 import analyticbastard.monkeyproblem.actors.Monkey
 import analyticbastard.monkeyproblem.definitions.Actions._
 import analyticbastard.monkeyproblem.definitions.Conf._
@@ -18,11 +19,11 @@ class MonkeyIntegration extends TestKit(ActorSystem(systemName))
   with Matchers {
 
   val numberOfMonkeys = 5
-  system actorOf(Props(Monkey(West)), name = "monkey1")
-  system actorOf(Props(Monkey(East)), name = "monkey2")
-  system actorOf(Props(Monkey(East)), name = "monkey3")
-  system actorOf(Props(Monkey(East)), name = "monkey4")
-  system actorOf(Props(Monkey(West)), name = "monkey5")
+  system actorOf(Props(Monkey(new MonkeyLogic(West))), name = "monkey1")
+  system actorOf(Props(Monkey(new MonkeyLogic(East))), name = "monkey2")
+  system actorOf(Props(Monkey(new MonkeyLogic(East))), name = "monkey3")
+  system actorOf(Props(Monkey(new MonkeyLogic(East))), name = "monkey4")
+  system actorOf(Props(Monkey(new MonkeyLogic(West))), name = "monkey5")
 
   var selection: ActorSelection = system.actorSelection(s"akka://$systemName/user/*monkey*")
   selection ! Start
