@@ -46,6 +46,20 @@ maintained.
 The methods are short and specific and the variable and method names
 are long, hinting at what they do in the most precise way. The code is then read as prose.
 
+## Testing and test coverage
+
+To fire the test, use the following command
+
+```bash
+sbt test
+```
+
+To run test coverage, issue
+
+```bash
+sbt clean coverage test coverageReport
+```
+
 ## Developer's setup
 
 Download the [DCEVM](https://github.com/dcevm/dcevm/releases) and [Hotswap agent](https://github.com/HotswapProjects/HotswapAgent/releases).

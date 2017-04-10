@@ -5,7 +5,8 @@ lazy val root = (project in file(".")).
     inThisBuild(List(
       organization := "javier.monkeyproblem",
       scalaVersion := "2.12.1",
-      version      := "0.1.0-SNAPSHOT"
+      version      := "0.1.0-SNAPSHOT",
+      coverageEnabled := true
     )),
     parallelExecution in Test := false,
     name := "monkeyproblem",

@@ -3,14 +3,14 @@ package analyticbastard.monkeyproblem
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
-import akka.actor.{ActorSystem, Props}
+import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.TestKit
 import analyticbastard.monkeyproblem.actors.Monkey
 import analyticbastard.monkeyproblem.actors.logic.MonkeyLogic
 import analyticbastard.monkeyproblem.definitions.Actions.Start
 import analyticbastard.monkeyproblem.definitions.Conf._
-import analyticbastard.monkeyproblem.definitions.Statuses.{Hanging, Jumping, Finished}
-import analyticbastard.monkeyproblem.definitions.{Statuses, East, West}
+import analyticbastard.monkeyproblem.definitions.Statuses.{Hanging, Finished}
+import analyticbastard.monkeyproblem.definitions.{East, West}
 import org.scalamock.scalatest.MockFactory
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
@@ -27,8 +27,8 @@ class MonkeyLogicSpec extends TestKit(ActorSystem(systemName))
   val monkey1: String = "monkey1"
   val monkey2: String = "monkey2"
   val monkeyLogic = new MonkeyLogic(West, monkey1)
-  val monkeyActor = system.actorOf(Props(Monkey(monkeyLogic)), monkey1)
-  monkeyActor ! Start(true)
+  val monkeyActor1: ActorRef = system.actorOf(Props(Monkey(monkeyLogic)), monkey1)
+  monkeyActor1 ! Start(true)
 
   "The Monkey's logic" must {
     "abort jumping when a monkey with a monkey1 value less than his is jumping" in {
@@ -90,6 +90,7 @@ class MonkeyLogicSpec extends TestKit(ActorSystem(systemName))
 
   "The monkey " must {
     "abort jumping if either there is another jumping monkey meeting jumping policy or time has not yet elapsed" in {
+      monkeyLogic.lastHangingMonkeyDirection = null
       monkeyLogic.shouldAbortJump = true
       monkeyLogic.lastHangingMonkeyTime = LocalDateTime.now.minus(timeToCross+100, ChronoUnit.MILLIS)
       monkeyLogic.jumpAndPossiblyHoldRope()
